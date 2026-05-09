@@ -11,11 +11,15 @@ use Illuminate\Foundation\Http\FormRequest;
  * Dipanggil oleh GameplayService setelah pertandingan selesai.
  *
  * Body: {
- *   result:     'white' | 'black' | 'draw',
- *   end_reason: 'checkmate' | 'timeout' | 'resign' | 'draw_agreement',
+ *   result:     'white' | 'black' | 'draw' | 'white_wins' | 'black_wins',
+ *   end_reason: 'checkmate' | 'timeout' | 'resign' | 'draw_agreement' | 'stalemate' | 'draw_rule',
  *   winner_id?: string,
- *   pgn?:       array
+ *   pgn?:       array,
+ *   session_id?: string   — match_id dari GameplayService, untuk preview
  * }
+ *
+ * CATATAN: 'white_wins' dan 'black_wins' adalah alias yang dikirim GameplayService.
+ * Normalisasi ke 'white'/'black' dilakukan di RoomService::finishRoom().
  */
 class FinishRoomRequest extends FormRequest
 {
@@ -27,10 +31,11 @@ class FinishRoomRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'result'     => ['required', 'string', 'in:white,black,draw'],
-            'end_reason' => ['required', 'string', 'in:checkmate,timeout,resign,draw_agreement'],
+            'result'     => ['required', 'string', 'in:white,black,draw,white_wins,black_wins'],
+            'end_reason' => ['required', 'string', 'in:checkmate,timeout,resign,draw_agreement,stalemate,draw_rule'],
             'winner_id'  => ['nullable', 'string'],
             'pgn'        => ['nullable', 'array'],
+            'session_id' => ['nullable', 'string'],
         ];
     }
 
@@ -38,9 +43,9 @@ class FinishRoomRequest extends FormRequest
     {
         return [
             'result.required'     => 'Hasil pertandingan harus diisi.',
-            'result.in'           => 'Hasil tidak valid. Pilihan: white, black, draw.',
+            'result.in'           => 'Hasil tidak valid. Pilihan: white, black, draw, white_wins, black_wins.',
             'end_reason.required' => 'Alasan akhir pertandingan harus diisi.',
-            'end_reason.in'       => 'End reason tidak valid. Pilihan: checkmate, timeout, resign, draw_agreement.',
+            'end_reason.in'       => 'End reason tidak valid. Pilihan: checkmate, timeout, resign, draw_agreement, stalemate, draw_rule.',
         ];
     }
 }

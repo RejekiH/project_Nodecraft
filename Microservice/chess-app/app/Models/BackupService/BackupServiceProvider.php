@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use App\Modules\BackupService\Console\StartHeartbeatListenerCommand;
 use App\Modules\BackupService\Console\TriggerBackupCommand;
 use App\Modules\BackupService\Console\CleanBackupHistoryCommand;
+use App\Modules\BackupService\Console\CheckStaleNodesCommand;
 
 /**
  * BackupServiceProvider
@@ -49,6 +50,7 @@ class BackupServiceProvider extends ServiceProvider
                 StartHeartbeatListenerCommand::class,
                 TriggerBackupCommand::class,
                 CleanBackupHistoryCommand::class,
+                CheckStaleNodesCommand::class,
             ]);
         }
     }

@@ -127,6 +127,11 @@ class BackupService
             ]);
         }
 
+        // Fix: pruneOldBackups() sebelumnya hanya dipanggil di runFullBackup().
+        // Backup incremental yang dijalankan setiap jam akan menumpuk tanpa batas
+        // jika tidak dibersihkan. Tambahkan pruning di sini juga.
+        $this->pruneOldBackups();
+
         return $record->fresh();
     }
 

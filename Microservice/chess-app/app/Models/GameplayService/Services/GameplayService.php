@@ -151,12 +151,19 @@ class GameplayService
             throw GameplayException::illegalMove($from, $to, $session->fen);
         }
 
-        // Update jam (kurangi waktu, tambah increment)
+        // Update jam (kurangi waktu, tambah increment hanya jika waktu masih ada)
         $clock       = $session->clock ?? ['white' => 600, 'black' => 600, 'increment' => 0];
         $increment   = (int) ($clock['increment'] ?? 0);
         $timeSpentSec = (int) ceil($timeSpentMs / 1000);
 
-        $clock[$playerColor] = max(0, $clock[$playerColor] - $timeSpentSec + $increment);
+        // Fix: increment hanya ditambahkan jika pemain belum timeout (sisa waktu > 0 sebelum dikurangi)
+        // Sebelumnya: increment selalu ditambahkan, bisa "menyelamatkan" pemain yang sudah habis waktu
+        $remainingAfterMove = $clock[$playerColor] - $timeSpentSec;
+        if ($remainingAfterMove > 0) {
+            $clock[$playerColor] = $remainingAfterMove + $increment;
+        } else {
+            $clock[$playerColor] = 0;
+        }
 
         // Simpan move record
         $moveRecord = MoveRecord::create([
@@ -200,8 +207,14 @@ class GameplayService
             $result = $playerColor === 'white' ? 'white_wins' : 'black_wins';
             $this->finishGame($session, $result, 'checkmate');
             $gameOver = true;
-        } elseif ($moveResult['is_stalemate'] || $moveResult['is_draw']) {
-            $this->finishGame($session, 'draw', $moveResult['is_stalemate'] ? 'stalemate' : 'draw_agreement');
+        } elseif ($moveResult['is_stalemate']) {
+            // Fix: stalemate adalah kondisi otomatis — bukan draw_agreement (persetujuan kedua pemain)
+            $this->finishGame($session, 'draw', 'stalemate');
+            $gameOver = true;
+        } elseif ($moveResult['is_draw']) {
+            // Fix: draw otomatis dari aturan (50-move rule, repetisi, insufficient material)
+            // menggunakan 'draw_rule', bukan 'draw_agreement' yang berarti kedua pemain setuju
+            $this->finishGame($session, 'draw', 'draw_rule');
             $gameOver = true;
         }
 
@@ -382,7 +395,7 @@ class GameplayService
      *
      * @param GameSession $session
      * @param string      $result  'white_wins' | 'black_wins' | 'draw'
-     * @param string      $reason
+     * @param string      $reason  'checkmate' | 'timeout' | 'resign' | 'draw_agreement' | 'stalemate' | 'draw_rule'
      */
     private function finishGame(GameSession $session, string $result, string $reason): void
     {
@@ -394,8 +407,11 @@ class GameplayService
             'reason'     => $reason,
         ]);
 
-        // Laporkan hasil ke RoomService (non-blocking)
-        dispatch(function () use ($session, $result, $reason) {
+        // Fix: dispatch()->afterResponse() hanya berjalan di HTTP context.
+        // Saat dipanggil via artisan (CheckTimeoutsCommand), HTTP response tidak ada —
+        // closure tidak pernah dieksekusi dan hasil match tidak pernah dilaporkan ke RoomService.
+        // Solusi: panggil langsung dan tangkap exception agar tidak menggagalkan proses utama.
+        try {
             $this->roomClient->reportMatchResult(
                 roomId:    $session->room_id,
                 sessionId: (string) $session->_id,
@@ -404,7 +420,15 @@ class GameplayService
                 whiteId:   $session->white_user_id,
                 blackId:   $session->black_user_id,
             );
-        })->afterResponse();
+        } catch (\Exception $e) {
+            // Gagal lapor ke RoomService tidak boleh membatalkan penyelesaian game.
+            // Log error untuk monitoring; retry bisa dilakukan via job queue terpisah.
+            Log::error('[GameplayService] Gagal lapor hasil ke RoomService', [
+                'session_id' => (string) $session->_id,
+                'result'     => $result,
+                'error'      => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

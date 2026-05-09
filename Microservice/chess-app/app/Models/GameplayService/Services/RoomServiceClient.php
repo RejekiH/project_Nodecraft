@@ -40,7 +40,7 @@ class RoomServiceClient
      * @param string $roomId
      * @param string $sessionId
      * @param string $result      'white_wins' | 'black_wins' | 'draw'
-     * @param string $reason      'checkmate' | 'resign' | 'timeout' | 'draw_agreement' | 'stalemate'
+     * @param string $reason      'checkmate' | 'resign' | 'timeout' | 'draw_agreement' | 'stalemate' | 'draw_rule'
      * @param string $whiteId     User ID pemain putih
      * @param string $blackId     User ID pemain hitam
      *
@@ -56,10 +56,22 @@ class RoomServiceClient
     ): void {
         $url = "{$this->baseUrl}/api/internal/room/{$roomId}/match-result";
 
+        // Tentukan winner_id berdasarkan result (diharapkan FinishRoomRequest)
+        $winnerId = match ($result) {
+            'white_wins' => $whiteId,
+            'black_wins' => $blackId,
+            default      => null,
+        };
+
+        // Fix: field harus sesuai FinishRoomRequest di RoomService:
+        //   - 'end_reason' bukan 'reason'
+        //   - tambah 'winner_id' agar RoomService tahu siapa pemenangnya
+        //   - 'session_id' untuk match_id di preview UserService
         $body = [
             'session_id' => $sessionId,
             'result'     => $result,
-            'reason'     => $reason,
+            'end_reason' => $reason,
+            'winner_id'  => $winnerId,
             'white_id'   => $whiteId,
             'black_id'   => $blackId,
         ];
@@ -68,7 +80,7 @@ class RoomServiceClient
             'room_id'    => $roomId,
             'session_id' => $sessionId,
             'result'     => $result,
-            'reason'     => $reason,
+            'end_reason' => $reason,
         ]);
 
         $response = Http::withHeaders([

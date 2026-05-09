@@ -227,16 +227,25 @@ class RoomService
             throw new RoomException("Room tidak dalam status in_progress (status: {$room->status})", 409);
         }
 
-        $result    = $data['result'];      // 'white' | 'black' | 'draw'
-        $endReason = $data['end_reason'];  // 'checkmate' | 'timeout' | 'resign' | 'draw_agreement'
+        $result    = $data['result'];      // 'white' | 'black' | 'draw' | 'white_wins' | 'black_wins'
+        $endReason = $data['end_reason'];  // 'checkmate' | 'timeout' | 'resign' | 'draw_agreement' | 'stalemate' | 'draw_rule'
         $winnerId  = $data['winner_id'] ?? null;
         $pgn       = $data['pgn'] ?? null;
+        $sessionId = $data['session_id'] ?? null;
+
+        // Normalisasi hasil dari GameplayService ('white_wins'/'black_wins' → 'white'/'black')
+        // Fix: GameplayService mengirim 'white_wins'/'black_wins', RoomService menerima 'white'/'black'
+        $result = match ($result) {
+            'white_wins' => 'white',
+            'black_wins' => 'black',
+            default      => $result,
+        };
 
         $room->finish($result, $endReason, $winnerId, $pgn);
         $room->refresh();
 
         // Update rating kedua pemain di UserService (non-blocking)
-        $this->updatePlayerRatings($room, $result, $winnerId);
+        $this->updatePlayerRatings($room, $result, $winnerId, $sessionId);
 
         Log::info('Room selesai', [
             'room_id'    => (string) $room->_id,
@@ -363,9 +372,10 @@ class RoomService
      * Update rating kedua pemain setelah match selesai.
      * Dipanggil asinkron — error tidak propagate.
      *
-     * @param string $result 'white' | 'black' | 'draw'
+     * @param string      $result    'white' | 'black' | 'draw'
+     * @param string|null $sessionId match_id dari GameplayService, untuk field preview.match_id
      */
-    private function updatePlayerRatings(Room $room, string $result, ?string $winnerId): void
+    private function updatePlayerRatings(Room $room, string $result, ?string $winnerId, ?string $sessionId = null): void
     {
         $hostId  = $room->host_id;
         $guestId = $room->guest_id;
@@ -386,8 +396,11 @@ class RoomService
             $guestResult = 'win';
         }
 
+        // Fix: sertakan match_id (session_id dari GameplayService) agar preview konsisten
+        // Sebelumnya hanya ada room_id — field match_id di ApplyMatchResultRequest tidak terisi
         $preview = [
             'room_id'    => (string) $room->_id,
+            'match_id'   => $sessionId,
             'result'     => $result,
             'end_reason' => $room->end_reason,
         ];

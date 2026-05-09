@@ -153,9 +153,11 @@ class BackupController extends Controller
         $responses = $this->userServiceClient->batchApplyMatchResults($results);
 
         // Trigger incremental backup setelah match result diproses
-        // (non-blocking: jalankan di background jika queue tersedia)
-        dispatch(function () {
-            $this->backupService->runIncrementalBackup('match_result');
+        // Fix: capture $backupService via use() — tidak boleh pakai $this di dalam closure
+        // karena Controller bisa sudah di-garbage-collect saat closure dieksekusi afterResponse.
+        $backupService = $this->backupService;
+        dispatch(function () use ($backupService) {
+            $backupService->runIncrementalBackup('match_result');
         })->afterResponse();
 
         return response()->json([

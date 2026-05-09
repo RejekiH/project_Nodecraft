@@ -139,11 +139,14 @@ class UserServiceClient
     /**
      * Cek apakah UserService dapat dijangkau.
      * Digunakan oleh HeartbeatMonitor untuk validasi konektivitas.
+     *
+     * Fix: sebelumnya memanggil /api/backup/health (endpoint BackupService itu sendiri),
+     * bukan UserService — tidak berguna untuk mengecek konektivitas ke UserService.
      */
     public function ping(): bool
     {
         try {
-            $response = Http::timeout(5)->get("{$this->baseUrl}/api/backup/health");
+            $response = Http::timeout(5)->get("{$this->baseUrl}/api/user/health");
             return $response->successful();
         } catch (\Exception) {
             return false;

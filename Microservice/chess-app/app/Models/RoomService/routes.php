@@ -38,14 +38,15 @@ Route::prefix('api/room')->middleware('jwt.auth')->group(function () {
     Route::get('/code/{code}', [RoomController::class, 'showByCode'])
          ->where('code', '[A-Z2-9]{6}');
 
+    // GET    /api/room/history/{userId} - Riwayat pertandingan user
+    // CATATAN: letakkan SEBELUM /{id} agar tidak tertangkap sebagai {id}
+    Route::get('/history/{userId}', [RoomController::class, 'history']);
+
     // GET    /api/room/{id}     - Detail room berdasarkan ID
     Route::get('/{id}',    [RoomController::class, 'show']);
 
     // DELETE /api/room/{id}    - Cancel room (host only, status waiting)
     Route::delete('/{id}', [RoomController::class, 'cancel']);
-
-    // GET    /api/room/history/{userId} - Riwayat pertandingan user
-    Route::get('/history/{userId}', [RoomController::class, 'history']);
 });
 
 // ─── Internal routes — hanya bisa diakses oleh module/service lain ────────
@@ -54,6 +55,10 @@ Route::prefix('api/internal/room')->middleware('internal.key')->group(function (
     // POST /api/internal/room/{id}/finish
     // Dipanggil GameplayService setelah pertandingan selesai
     Route::post('/{id}/finish', [RoomController::class, 'finish']);
+
+    // POST /api/internal/room/{id}/match-result
+    // Alias untuk /finish — mendukung GameplayService yang memanggil /match-result
+    Route::post('/{id}/match-result', [RoomController::class, 'finish']);
 
     // GET  /api/internal/room/{id}
     // Dipanggil BackupService untuk ambil detail room dengan PGN
