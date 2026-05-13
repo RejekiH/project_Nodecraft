@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-chess-bg: #f8fafc; /* slate-50 */
+  --color-chess-card: #ffffff; /* white */
+  --color-chess-sidebar: #ffffff; /* white */
+  --color-chess-green: #81B64C;
+  --color-chess-indigo: #4f46e5; /* indigo-600 */
+  --color-chess-highlight: #F6F669;
+  --color-chess-dark-sq: #B58863;
+  --color-chess-light-sq: #F0D9B5;
+  --color-chess-green-sq: #4D9966;
+  --color-chess-green-l-sq: #EDEDC4;
+  --color-chess-text: #0f172a; /* slate-900 */
+  --color-chess-muted: #64748b; /* slate-500 */
+  --color-chess-border: #e2e8f0; /* slate-200 */
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  @apply bg-chess-bg text-chess-text font-sans antialiased;
+}
+
+/* Custom transitions for pieces and UI */
+.piece-transition {
+  @apply transition-all duration-150 ease-in-out;
+}
+
+.card-hover {
+  @apply hover:shadow-lg transition-shadow duration-200;
+}
+
+.btn-scale {
+  @apply hover:scale-105 active:scale-95 transition-transform duration-150;
+}
+
