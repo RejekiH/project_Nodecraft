@@ -1,0 +1,16 @@
+{
+  "name": "chess-websocket-server",
+  "version": "2.0.0",
+  "description": "WebSocket server untuk NodeChess - terintegrasi dengan Laravel backend",
+  "main": "websocket-server.js",
+  "scripts": {
+    "start": "node websocket-server.js",
+    "dev": "node --watch websocket-server.js",
+    "test:engine": "node Engine/Test/ChessEngineTest.js"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "dependencies": {
+    "socket.io": "^4.8.3"
+  }
+}
